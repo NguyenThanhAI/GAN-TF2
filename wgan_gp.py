@@ -268,6 +268,6 @@ if __name__ == '__main__':
                     tf.summary.image("fake_image", x_fake, D_optimizer.iterations.numpy())
                     img = immerge(x_fake, n_rows=10).squeeze()
                     imwrite(img, os.path.join(sample_dir, "iter-%09d.jpg" % G_optimizer.iterations.numpy()))
-                    video_writer.write(img)
+                    video_writer.write(im2uint(img[:, :, ::-1]))
 
     video_writer.release()
