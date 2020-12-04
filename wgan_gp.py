@@ -4,6 +4,7 @@ import argparse
 from functools import partial
 
 import numpy as np
+import cv2
 
 import tensorflow as tf
 from tensorflow import keras
@@ -174,9 +175,17 @@ if __name__ == '__main__':
     else:
         output_dir = args.output_dir
 
+    summary_dir = os.path.join(output_dir, "summaries")
+    if not os.path.exists(summary_dir):
+        os.makedirs(summary_dir, exist_ok=True)
+
     sample_dir = os.path.join(output_dir, "samples_training")
     if not os.path.exists(sample_dir):
         os.makedirs(sample_dir, exist_ok=True)
+
+    video_dir = os.path.join(output_dir, "video")
+    if not os.path.exists(video_dir):
+        os.makedirs(video_dir, exist_ok=True)
 
 
     @tf.function
@@ -232,18 +241,33 @@ if __name__ == '__main__':
     G_optimizer = keras.optimizers.Adam(learning_rate=args.lr, beta_1=args.beta_1)
     D_optimizer = keras.optimizers.Adam(learning_rate=args.lr, beta_1=args.beta_1)
 
+    summary_writer = tf.summary.create_file_writer(logdir=summary_dir)
+
+    fps = 10.
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video_writer = cv2.VideoWriter(os.path.join(video_dir, "video.mp4"), fourcc, fps, (640, 640))
+
     z = tf.random.normal((100, 1, 1, args.z_dim))
-    for epoch in tqdm.tgrange(args.epochs, desc="Epoch loop"):
+    with summary_writer.as_default():
+        for epoch in tqdm.tgrange(args.epochs, desc="Epoch loop"):
 
-        print("Epoch: {}/{}".format(epoch + 1, args.epochs))
+            print("Epoch: {}/{}".format(epoch + 1, args.epochs))
 
-        for x_real in tqdm.tqdm(dataset, desc="Inner epoch loop", total=int(num_samples / args.batch_size)):
-            d_loss_dict = train_D(x_real)
+            for x_real in tqdm.tqdm(dataset, desc="Inner epoch loop", total=int(num_samples / args.batch_size)):
+                d_loss_dict = train_D(x_real)
+                tf.summary.scalar("d_loss", d_loss_dict["d_loss"], D_optimizer.iterations.numpy())
+                tf.summary.scalar("gp", d_loss_dict["gp"], D_optimizer.iterations.numpy())
 
-            if D_optimizer.iterations.numpy() % args.n_d == 0:
-                G_loss_dict = train_G()
+                if D_optimizer.iterations.numpy() % args.n_d == 0:
+                    G_loss_dict = train_G()
+                    tf.summary.scalar("g_loss", G_loss_dict["g_loss"], D_optimizer.iterations.numpy())
 
-            if G_optimizer.iterations.numpy() % 100 == 0:
-                x_fake = sample(z)
-                img = immerge(x_fake, n_rows=10).squeeze()
-                imwrite(img, os.path.join(sample_dir, "iter-%09d.jpg" % G_optimizer.iterations.numpy()))
+                if G_optimizer.iterations.numpy() % 100 == 0:
+                    x_fake = sample(z)
+                    tf.summary.image("real_image", x_real, D_optimizer.iterations.numpy())
+                    tf.summary.image("fake_image", x_fake, D_optimizer.iterations.numpy())
+                    img = immerge(x_fake, n_rows=10).squeeze()
+                    imwrite(img, os.path.join(sample_dir, "iter-%09d.jpg" % G_optimizer.iterations.numpy()))
+                    video_writer.write(img)
+
+    video_writer.release()

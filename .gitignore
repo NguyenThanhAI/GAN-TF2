@@ -3,6 +3,7 @@
 *.png
 *.gif
 *.tif
+*.mp4
 events.out.*
 
 checkpoint
