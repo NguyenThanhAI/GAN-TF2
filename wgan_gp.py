@@ -116,6 +116,8 @@ def get_args():
     parser.add_argument('--n_d', type=int, default=1)  # # d updates per g update
     parser.add_argument('--z_dim', type=int, default=128)
     parser.add_argument('--gradient_penalty_weight', type=float, default=10.0)
+    parser.add_argument("--input_size", type=int, default=80)
+    parser.add_argument("--output_size", type=int, default=64)
     parser.add_argument('--output_dir', type=str, default=None)
 
     args = parser.parse_args()
@@ -227,11 +229,13 @@ if __name__ == '__main__':
     def sample(z):
         return G(z, training=False)
 
-    dataset = get_batch(tfrecord_path=args.tfrecord_path, batch_size=args.batch_size)
+    dataset = get_batch(tfrecord_path=args.tfrecord_path, batch_size=args.batch_size, in_size=args.input_size, out_size=args.output_size)
     num_samples = sum(1 for _ in tf.data.TFRecordDataset(args.tfrecord_path))
 
-    G = module.ConvGenerator(input_shape=(1, 1, args.z_dim), output_channels=3, n_upsamplings=4, name="G_anime")
-    D = module.ConvDiscriminator(input_shape=(64, 64, 3), n_downsamplings=4, norm="layer_norm", name="D_anime")
+    n_up_down_sampling = int(np.log2(args.output_size // 4))
+
+    G = module.ConvGenerator(input_shape=(1, 1, args.z_dim), output_channels=3, n_upsamplings=n_up_down_sampling, name="G_anime")
+    D = module.ConvDiscriminator(input_shape=(args.output_size, args.output_size, 3), n_downsamplings=n_up_down_sampling, norm="layer_norm", name="D_anime")
 
     G.summary()
     D.summary()

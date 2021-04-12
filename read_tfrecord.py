@@ -26,9 +26,9 @@ def _parse_fn(data_record, in_size=80, out_size=64):
     return image
 
 
-def get_batch(tfrecord_path, batch_size):
+def get_batch(tfrecord_path, batch_size, in_size=80, out_size=64):
     dataset = tf.data.TFRecordDataset([tfrecord_path])
-    dataset = dataset.map(_parse_fn)
+    dataset = dataset.map(lambda x: _parse_fn(x, in_size=in_size, out_size=out_size))
     dataset = dataset.shuffle(5000, reshuffle_each_iteration=True)
     dataset = dataset.batch(batch_size, drop_remainder=True)
     dataset.prefetch(tf.data.experimental.AUTOTUNE)
